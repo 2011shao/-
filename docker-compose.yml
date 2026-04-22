@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: erp-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: erpdb
+      POSTGRES_USER: erp
+      POSTGRES_PASSWORD: erp
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  erpserver:
+    build:
+      context: ./erpserver
+    container_name: erp-server
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://erp:erp@db:5432/erpdb?schema=public
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+
+  adminpc:
+    build:
+      context: ./adminpc
+    container_name: erp-adminpc
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - erpserver
+
+volumes:
+  pg_data:
