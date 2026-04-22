@@ -1,0 +1,233 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum StockInStatus {
+  DRAFT
+  APPROVED
+  CANCELED
+}
+
+enum TransferStatus {
+  DRAFT
+  APPROVED
+  CANCELED
+}
+
+enum StocktakeStatus {
+  DRAFT
+  APPROVED
+  CANCELED
+}
+
+enum SerialMode {
+  MANUAL
+  AUTO
+}
+
+enum SerialStatus {
+  IN_STOCK
+  IN_TRANSIT
+  SOLD
+  SCRAPPED
+}
+
+model Brand {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  status    Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String
+  level     Int
+  parentId  String?
+  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryTree")
+  sortNo    Int        @default(0)
+  status    Int        @default(1)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Supplier {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  name         String
+  contactName  String?
+  contactPhone String?
+  status       Int      @default(1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Store {
+  id         String      @id @default(cuid())
+  code       String      @unique
+  name       String
+  isHq       Boolean     @default(false)
+  status     Int         @default(1)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  warehouses Warehouse[]
+}
+
+model Warehouse {
+  id        String   @id @default(cuid())
+  storeId   String
+  code      String
+  name      String
+  type      String
+  status    Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id])
+
+  @@unique([storeId, code])
+}
+
+model StockInOrder {
+  id                String        @id @default(cuid())
+  orderNo           String        @unique
+  targetStoreId     String
+  targetWarehouseId String
+  supplierId        String
+  status            StockInStatus @default(DRAFT)
+  remark            String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  items             StockInItem[]
+}
+
+model StockInItem {
+  id               String       @id @default(cuid())
+  orderId          String
+  brandId          String
+  categoryLevel1Id String
+  categoryLevel2Id String
+  specText         String
+  purchasePrice    Decimal
+  salePrice        Decimal
+  qty              Int
+  serialMode       SerialMode
+  createdAt        DateTime     @default(now())
+
+  order   StockInOrder   @relation(fields: [orderId], references: [id])
+  serials SerialNumber[]
+}
+
+model TransferOrder {
+  id              String         @id @default(cuid())
+  orderNo         String         @unique
+  fromStoreId     String
+  fromWarehouseId String
+  toStoreId       String
+  toWarehouseId   String
+  status          TransferStatus @default(DRAFT)
+  remark          String?
+  createdBy       String
+  approvedBy      String?
+  approvedAt      DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  items           TransferItem[]
+}
+
+model TransferItem {
+  id              String   @id @default(cuid())
+  transferOrderId String
+  serialNo        String
+  createdAt       DateTime @default(now())
+
+  transferOrder TransferOrder @relation(fields: [transferOrderId], references: [id])
+
+  @@index([serialNo])
+}
+
+model StocktakeOrder {
+  id          String          @id @default(cuid())
+  orderNo     String          @unique
+  storeId     String
+  warehouseId String
+  status      StocktakeStatus @default(DRAFT)
+  remark      String?
+  createdBy   String
+  approvedBy  String?
+  approvedAt  DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  items       StocktakeItem[]
+}
+
+model StocktakeItem {
+  id               String   @id @default(cuid())
+  stocktakeOrderId String
+  serialNo         String
+  result           String
+  remark           String?
+  createdAt        DateTime @default(now())
+
+  stocktakeOrder StocktakeOrder @relation(fields: [stocktakeOrderId], references: [id])
+
+  @@index([serialNo])
+}
+
+model SerialNumber {
+  id             String       @id @default(cuid())
+  serialNo       String       @unique
+  stockInOrderId String
+  stockInItemId  String
+  storeId        String
+  warehouseId    String
+  status         SerialStatus @default(IN_STOCK)
+  createdAt      DateTime     @default(now())
+
+  item StockInItem      @relation(fields: [stockInItemId], references: [id])
+  logs SerialNumberLog[]
+}
+
+model SerialNumberLog {
+  id              String   @id @default(cuid())
+  serialNo        String
+  eventType       String
+  sourceDocType   String
+  sourceDocId     String
+  fromStoreId     String?
+  fromWarehouseId String?
+  toStoreId       String?
+  toWarehouseId   String?
+  operatorId      String
+  operatedAt      DateTime @default(now())
+  remark          String?
+
+  serial SerialNumber @relation(fields: [serialNo], references: [serialNo])
+
+  @@index([serialNo, operatedAt])
+}
+
+model OperationLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  userRole   String?
+  method     String
+  path       String
+  statusCode Int
+  durationMs Int
+  ip         String?
+  userAgent  String?
+  requestBody Json?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([path, createdAt])
+}
