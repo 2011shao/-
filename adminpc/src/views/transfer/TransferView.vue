@@ -15,6 +15,8 @@
       <a-button type="primary" @click="createOrder">创建调拨单</a-button>
       <a-input v-model="approveId" placeholder="调拨单ID" style="width: 220px" />
       <a-button status="success" @click="approveOrder">审核</a-button>
+      <a-input v-model="unapproveId" placeholder="调拨单ID" style="width: 220px" />
+      <a-button status="warning" @click="unapproveOrder">反审核</a-button>
       <a-input v-model="cancelId" placeholder="调拨单ID" style="width: 220px" />
       <a-button status="danger" @click="cancelOrder">作废</a-button>
       <a-select v-model="query.status" placeholder="状态筛选" allow-clear style="width: 150px">
@@ -58,6 +60,7 @@ const form = reactive({
 const query = reactive({ page: 1, pageSize: 10, status: '' });
 const serialNosText = ref('');
 const approveId = ref('');
+const unapproveId = ref('');
 const cancelId = ref('');
 const rows = ref<any[]>([]);
 const total = ref(0);
@@ -102,6 +105,13 @@ async function approveOrder() {
   if (!approveId.value) return Message.warning('请先填写调拨单ID');
   await http.post(`/transfers/${approveId.value}/approve`);
   Message.success('调拨单审核成功');
+  await loadOrders();
+}
+
+async function unapproveOrder() {
+  if (!unapproveId.value) return Message.warning('请先填写调拨单ID');
+  await http.post(`/transfers/${unapproveId.value}/unapprove`);
+  Message.success('调拨单反审核成功');
   await loadOrders();
 }
 

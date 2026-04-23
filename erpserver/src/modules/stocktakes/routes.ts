@@ -135,6 +135,66 @@ stocktakeRouter.post('/:id/approve', async (req, res) => {
   res.json({ code: 0, message: 'ok', data: { id, status: 'APPROVED' } });
 });
 
+stocktakeRouter.post('/:id/unapprove', async (req, res) => {
+  const id = req.params.id;
+  const user = req.user;
+
+  const order = await prisma.stocktakeOrder.findUnique({
+    where: { id },
+    include: { items: true },
+  });
+
+  if (!order) {
+    return res.status(404).json({ code: 1001, message: '盘点单不存在' });
+  }
+
+  if (order.status !== 'APPROVED') {
+    return res.status(400).json({ code: 1001, message: '仅已审核盘点单可反审核' });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    for (const item of order.items) {
+      if (item.result === 'SCRAPPED') {
+        const serial = await tx.serialNumber.findUnique({ where: { serialNo: item.serialNo } });
+        if (!serial || serial.status !== 'SCRAPPED') {
+          throw new Error(`串码 ${item.serialNo} 状态已变化，无法反审核`);
+        }
+
+        await tx.serialNumber.update({
+          where: { serialNo: item.serialNo },
+          data: { status: 'IN_STOCK' },
+        });
+
+        await tx.serialNumberLog.create({
+          data: {
+            serialNo: item.serialNo,
+            eventType: 'STOCKTAKE_REVERT',
+            sourceDocType: 'STOCKTAKE_ORDER',
+            sourceDocId: order.id,
+            fromStoreId: order.storeId,
+            fromWarehouseId: order.warehouseId,
+            toStoreId: order.storeId,
+            toWarehouseId: order.warehouseId,
+            operatorId: user?.id || 'system',
+            remark: '盘点单反审核回退',
+          },
+        });
+      }
+    }
+
+    await tx.stocktakeOrder.update({
+      where: { id: order.id },
+      data: {
+        status: 'DRAFT',
+        approvedBy: null,
+        approvedAt: null,
+      },
+    });
+  });
+
+  res.json({ code: 0, message: 'ok', data: { id, status: 'DRAFT' } });
+});
+
 stocktakeRouter.post('/:id/cancel', async (req, res) => {
   const id = req.params.id;
   const order = await prisma.stocktakeOrder.findUnique({ where: { id } });

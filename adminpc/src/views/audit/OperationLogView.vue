@@ -3,6 +3,7 @@
     <a-space style="margin-bottom: 12px">
       <a-input v-model="query.path" placeholder="按路径筛选，例如 /api/v1/stock-in" style="width: 320px" />
       <a-button type="primary" @click="load">查询</a-button>
+      <a-button @click="exportCsv">导出CSV</a-button>
     </a-space>
 
     <a-table :columns="columns" :data="rows" :pagination="false" row-key="id" />
@@ -46,6 +47,13 @@ async function load() {
 function onPageChange(page: number) {
   query.page = page;
   load();
+}
+
+function exportCsv() {
+  const params = new URLSearchParams();
+  if (query.path) params.set('path', query.path);
+  params.set('limit', '1000');
+  window.open(`${http.defaults.baseURL}/operation-logs/export?${params.toString()}`, '_blank');
 }
 
 load();

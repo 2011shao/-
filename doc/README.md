@@ -11,6 +11,7 @@
 - `db/DATA_DICTIONARY_v1.md`：数据字典（字段、约束、索引、枚举）
 - `db/ERD_v1.md`：ER 关系与建模说明
 - `testcase/TEST_CASES_v1.md`：测试计划与核心测试用例
+- `test/TEST_RUN_GUIDE_v1.md`：测试运行文档（环境、冒烟、回归）
 - `release/GO_LIVE_CHECKLIST_v1.md`：上线检查清单
 - `ops/DEPLOY_RUNBOOK_v1.md`：部署与回滚手册
 

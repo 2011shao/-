@@ -144,6 +144,68 @@ transferRouter.post('/:id/approve', async (req, res) => {
   res.json({ code: 0, message: 'ok', data: { id, status: 'APPROVED' } });
 });
 
+transferRouter.post('/:id/unapprove', async (req, res) => {
+  const id = req.params.id;
+  const user = req.user;
+
+  const order = await prisma.transferOrder.findUnique({
+    where: { id },
+    include: { items: true },
+  });
+
+  if (!order) {
+    return res.status(404).json({ code: 1001, message: '调拨单不存在' });
+  }
+
+  if (order.status !== 'APPROVED') {
+    return res.status(400).json({ code: 1001, message: '仅已审核调拨单可反审核' });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    for (const item of order.items) {
+      const serial = await tx.serialNumber.findUnique({ where: { serialNo: item.serialNo } });
+      if (!serial || serial.storeId !== order.toStoreId || serial.warehouseId !== order.toWarehouseId) {
+        throw new Error(`串码 ${item.serialNo} 已被后续流程占用，无法反审核`);
+      }
+
+      await tx.serialNumber.update({
+        where: { serialNo: item.serialNo },
+        data: {
+          storeId: order.fromStoreId,
+          warehouseId: order.fromWarehouseId,
+          status: 'IN_STOCK',
+        },
+      });
+
+      await tx.serialNumberLog.create({
+        data: {
+          serialNo: item.serialNo,
+          eventType: 'TRANSFER_REVERT',
+          sourceDocType: 'TRANSFER_ORDER',
+          sourceDocId: order.id,
+          fromStoreId: order.toStoreId,
+          fromWarehouseId: order.toWarehouseId,
+          toStoreId: order.fromStoreId,
+          toWarehouseId: order.fromWarehouseId,
+          operatorId: user?.id || 'system',
+          remark: '调拨单反审核回退',
+        },
+      });
+    }
+
+    await tx.transferOrder.update({
+      where: { id: order.id },
+      data: {
+        status: 'DRAFT',
+        approvedBy: null,
+        approvedAt: null,
+      },
+    });
+  });
+
+  res.json({ code: 0, message: 'ok', data: { id, status: 'DRAFT' } });
+});
+
 transferRouter.post('/:id/cancel', async (req, res) => {
   const id = req.params.id;
   const order = await prisma.transferOrder.findUnique({ where: { id } });

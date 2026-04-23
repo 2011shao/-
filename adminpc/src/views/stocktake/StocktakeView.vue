@@ -21,6 +21,8 @@
       <a-button type="primary" @click="createOrder">创建盘点单</a-button>
       <a-input v-model="approveId" placeholder="盘点单ID" style="width: 220px" />
       <a-button status="success" @click="approveOrder">审核</a-button>
+      <a-input v-model="unapproveId" placeholder="盘点单ID" style="width: 220px" />
+      <a-button status="warning" @click="unapproveOrder">反审核</a-button>
       <a-input v-model="cancelId" placeholder="盘点单ID" style="width: 220px" />
       <a-button status="danger" @click="cancelOrder">作废</a-button>
       <a-select v-model="query.status" placeholder="状态筛选" allow-clear style="width: 150px">
@@ -68,6 +70,7 @@ const item = reactive({
 
 const query = reactive({ page: 1, pageSize: 10, status: '' });
 const approveId = ref('');
+const unapproveId = ref('');
 const cancelId = ref('');
 const rows = ref<any[]>([]);
 const total = ref(0);
@@ -107,6 +110,13 @@ async function approveOrder() {
   if (!approveId.value) return Message.warning('请先填写盘点单ID');
   await http.post(`/stocktakes/${approveId.value}/approve`);
   Message.success('盘点单审核成功');
+  await loadOrders();
+}
+
+async function unapproveOrder() {
+  if (!unapproveId.value) return Message.warning('请先填写盘点单ID');
+  await http.post(`/stocktakes/${unapproveId.value}/unapprove`);
+  Message.success('盘点单反审核成功');
   await loadOrders();
 }
 
